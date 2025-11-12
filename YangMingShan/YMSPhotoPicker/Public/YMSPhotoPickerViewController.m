@@ -119,6 +119,15 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
     [[PHPhotoLibrary sharedPhotoLibrary] unregisterChangeObserver:self];
 }
 
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    if (CGSizeEqualToSize(self.cellPortraitSize, CGSizeZero) ||
+        CGSizeEqualToSize(self.cellLandscapeSize, CGSizeZero)) {
+        [self setupCellSize];
+        [self.photoCollectionView.collectionViewLayout invalidateLayout];
+    }
+}
+
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id <UIViewControllerTransitionCoordinator>)coordinator
 {
     [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
@@ -313,11 +322,6 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
 
 - (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    if (CGSizeEqualToSize(CGSizeZero, self.cellPortraitSize)
-        || CGSizeEqualToSize(CGSizeZero, self.cellLandscapeSize)) {
-        [self setupCellSize];
-    }
-
     if ([[UIApplication sharedApplication] statusBarOrientation] == UIInterfaceOrientationLandscapeLeft
         || [[UIApplication sharedApplication] statusBarOrientation] == UIInterfaceOrientationLandscapeRight) {
         return self.cellLandscapeSize;
