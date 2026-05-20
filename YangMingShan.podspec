@@ -8,8 +8,8 @@ Pod::Spec.new do |s|
   s.source       = { :git => 'https://github.com/yahoo/YangMingShan.git', :tag => s.version.to_s }
   s.requires_arc = true
   s.frameworks   = ['Foundation', 'UIKit', 'QuartzCore']
-  s.platform     = :ios, '9.0'
-  s.ios.deployment_target = '9.0'
+  s.platform     = :ios, '12.0'
+  s.ios.deployment_target = '12.0'
   s.default_subspec = 'YMSPhotoPicker'
 
   s.subspec 'YMSPhotoPicker' do |ss|

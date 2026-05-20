@@ -43,6 +43,8 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
 - (void)updateViewWithCollectionItem:(NSDictionary *)collectionItem;
 - (void)refreshPhotoSelection;
 - (void)fetchCollections;
+- (NSArray *)fetchCollectionsSynchronously;
+- (void)fetchCollectionsOnBackgroundQueue;
 - (BOOL)allowsMultipleSelection;
 - (BOOL)canAddPhoto;
 - (IBAction)presentSinglePhoto:(id)sender;
@@ -102,8 +104,6 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
         self.navigationBarBackgroundView.backgroundColor = self.theme.navigationBarBackgroundColor;
     }
     
-    [self updateViewWithCollectionItem:[self.collectionItems firstObject]];
-
     self.cellPortraitSize = self.cellLandscapeSize = CGSizeZero;
 }
 
@@ -464,6 +464,11 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
 {
     self.currentCollectionItem = collectionItem;
     PHCollection *photoCollection = self.currentCollectionItem[@"collection"];
+    if (!photoCollection) {
+        self.navigationItem.titleView = nil;
+        [self.photoCollectionView reloadData];
+        return;
+    }
     
     UIButton *albumButton = [UIButton buttonWithType:UIButtonTypeSystem];
     albumButton.tintColor = self.theme.titleLabelTextColor;
@@ -542,6 +547,41 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
 
 - (void)fetchCollections
 {
+    if ([NSThread isMainThread]) {
+        [self fetchCollectionsOnBackgroundQueue];
+        return;
+    }
+
+    self.collectionItems = [self fetchCollectionsSynchronously];
+}
+
+- (void)fetchCollectionsOnBackgroundQueue
+{
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) {
+            return;
+        }
+
+        NSArray *collectionItems = [strongSelf fetchCollectionsSynchronously];
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) mainSelf = weakSelf;
+            if (!mainSelf) {
+                return;
+            }
+
+            mainSelf.collectionItems = collectionItems;
+            if (!mainSelf.currentCollectionItem) {
+                [mainSelf updateViewWithCollectionItem:[collectionItems firstObject]];
+            }
+        });
+    });
+}
+
+- (NSArray *)fetchCollectionsSynchronously
+{
     NSMutableArray *allAblums = [NSMutableArray array];
 
     PHFetchResult *smartAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeSmartAlbum subtype:PHAssetCollectionSubtypeSmartAlbumUserLibrary options:nil];
@@ -594,7 +634,7 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
             }
         }
     }
-    self.collectionItems = [allAblums copy];
+    return [allAblums copy];
 }
 
 - (void)setupCellSize
@@ -632,7 +672,7 @@ static const CGFloat YMSPhotoFetchScaleResizingRatio = 0.75;
     PHFetchResultChangeDetails *collectionChanges = [changeInstance changeDetailsForFetchResult:fetchResult];
     if (collectionChanges == nil) {
 
-        [self fetchCollections];
+        self.collectionItems = [self fetchCollectionsSynchronously];
 
         if (self.needToSelectFirstPhoto) {
             self.needToSelectFirstPhoto = NO;
